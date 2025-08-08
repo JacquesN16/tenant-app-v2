@@ -1,0 +1,296 @@
+name: Claude Workflow Orchestrator
+
+# This workflow manages the complete analyzer → approval → executor cycle
+# and coordinates between different specialized subagents
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  
+  issue_comment:
+    types: [created]
+  
+  workflow_run:
+    workflows: ["Claude Analyzer Agent", "Claude Executor Agent"]
+    types: [completed]
+
+jobs:
+  # Determine which subagent workflow should be triggered
+  route_request:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment'
+    
+    outputs:
+      trigger_analyzer: ${{ steps.routing.outputs.trigger_analyzer }}
+      trigger_executor: ${{ steps.routing.outputs.trigger_executor }}
+      trigger_security: ${{ steps.routing.outputs.trigger_security }}
+      trigger_performance: ${{ steps.routing.outputs.trigger_performance }}
+      trigger_test: ${{ steps.routing.outputs.trigger_test }}
+    
+    steps:
+      - name: Route Subagent Request
+        id: routing
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment?.body || '';
+            const issueBody = context.payload.issue?.body || '';
+            
+            // Determine which subagent to trigger based on keywords
+            const triggers = {
+              trigger_analyzer: false,
+              trigger_executor: false,
+              trigger_security: false,
+              trigger_performance: false,
+              trigger_test: false
+            };
+            
+            // Analyzer triggers
+            if (comment.includes('@claude-analyze') || 
+                comment.includes('@claude-review') || 
+                comment.includes('@claude-audit')) {
+              triggers.trigger_analyzer = true;
+            }
+            
+            // Executor triggers (with approval check)
+            if (comment.includes('@claude-execute') && 
+                (comment.includes('approved') || comment.includes('proceed'))) {
+              triggers.trigger_executor = true;
+            }
+            
+            // Specialized subagent triggers
+            if (comment.includes('@claude-security')) {
+              triggers.trigger_security = true;
+            }
+            
+            if (comment.includes('@claude-optimize') || 
+                comment.includes('@claude-performance')) {
+              triggers.trigger_performance = true;
+            }
+            
+            if (comment.includes('@claude-test') || 
+                comment.includes('@claude-testing')) {
+              triggers.trigger_test = true;
+            }
+            
+            // Set outputs
+            for (const [key, value] of Object.entries(triggers)) {
+              core.setOutput(key, value);
+            }
+            
+            // Log routing decision
+            console.log('Subagent routing decision:', triggers);
+  
+  # Monitor workflow completion and manage state transitions
+  workflow_monitor:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run'
+    
+    steps:
+      - name: Monitor Workflow Completion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowName = context.payload.workflow_run.name;
+            const conclusion = context.payload.workflow_run.conclusion;
+            const outputs = context.payload.workflow_run.outputs || {};
+            
+            console.log(`Workflow ${workflowName} completed with status: ${conclusion}`);
+            
+            // Handle analyzer completion
+            if (workflowName === 'Claude Analyzer Agent' && conclusion === 'success') {
+              const hasSecurityIssues = outputs.has_security_issues === 'true';
+              const hasSafeFixes = outputs.has_safe_fixes === 'true';
+              const priorityLevel = outputs.priority_level;
+              
+              // Create workflow completion comment
+              let comment = `## 🔍 Analysis Complete\n\n`;
+              comment += `**Priority Level:** ${priorityLevel}\n`;
+              comment += `**Security Issues:** ${hasSecurityIssues ? '⚠️ Found' : '✅ None'}\n`;
+              comment += `**Safe Fixes Available:** ${hasSafeFixes ? '🔧 Yes' : '➖ None'}\n\n`;
+              
+              if (hasSecurityIssues) {
+                comment += `🛡️ **Security review required** before execution.\n`;
+                comment += `Please review the security findings and use \`@claude-execute approved\` when ready.\n\n`;
+              } else if (hasSafeFixes) {
+                comment += `⚡ **Ready for execution** - Safe fixes identified.\n`;
+                comment += `Use \`@claude-execute approved\` to apply the fixes.\n\n`;
+              }
+              
+              comment += `### Available Commands:\n`;
+              comment += `- \`@claude-execute approved\` - Execute approved changes\n`;
+              comment += `- \`@claude-security\` - Deep security analysis\n`;
+              comment += `- \`@claude-optimize\` - Performance optimization\n`;
+              comment += `- \`@claude-test\` - Generate comprehensive tests\n`;
+              
+              // Post completion comment
+              if (context.payload.workflow_run.pull_requests.length > 0) {
+                const prNumber = context.payload.workflow_run.pull_requests[0].number;
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: comment
+                });
+              }
+            }
+            
+            // Handle executor completion
+            if (workflowName === 'Claude Executor Agent') {
+              const executionStatus = outputs.execution_status;
+              const testsPass = outputs.tests_passing === 'true';
+              const buildSuccess = outputs.build_successful === 'true';
+              
+              let comment = `## ⚡ Execution Complete\n\n`;
+              comment += `**Status:** ${conclusion === 'success' ? '✅ Success' : '❌ Failed'}\n`;
+              comment += `**Tests:** ${testsPass ? '✅ Passing' : '❌ Failed'}\n`;
+              comment += `**Build:** ${buildSuccess ? '✅ Success' : '❌ Failed'}\n\n`;
+              
+              if (conclusion === 'success' && testsPass && buildSuccess) {
+                comment += `🎉 **All quality checks passed!** This PR is ready for review and merge.\n\n`;
+                comment += `### What was completed:\n`;
+                comment += `- ✅ Code changes implemented\n`;
+                comment += `- ✅ Tests passing\n`;  
+                comment += `- ✅ Builds successful\n`;
+                comment += `- ✅ Type checking passed\n`;
+                comment += `- ✅ Linting rules satisfied\n`;
+              } else {
+                comment += `❌ **Execution encountered issues.** Please review the workflow logs and address any failures.\n\n`;
+              }
+              
+              // Post completion comment
+              if (context.payload.workflow_run.pull_requests.length > 0) {
+                const prNumber = context.payload.workflow_run.pull_requests[0].number;
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: comment
+                });
+              }
+            }
+
+  # Auto-trigger analyzer for new PRs
+  auto_analyze:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' && 
+      (github.event.action == 'opened' || github.event.action == 'synchronize')
+    
+    steps:
+      - name: Trigger Analyzer for PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Create a comment to trigger the analyzer
+            const comment = `🔍 **Auto-triggering analysis** for this pull request.\n\n@claude-analyze\n\nPlease analyze this PR for:\n- Code quality and best practices\n- Security vulnerabilities\n- Performance implications\n- Testing requirements\n- Documentation needs`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+  # Periodic health check and maintenance
+  maintenance_check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Run Maintenance Analysis
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          direct_prompt: |
+            Perform a comprehensive maintenance analysis of this tenant management system:
+            
+            ## 🔧 Maintenance Tasks
+            1. **Dependency Analysis:**
+               - Check for outdated packages in package.json files
+               - Identify security vulnerabilities in dependencies
+               - Suggest safe upgrade paths
+            
+            2. **Code Health Assessment:**
+               - Review code quality metrics
+               - Identify technical debt areas
+               - Check for unused imports and dead code
+            
+            3. **Performance Monitoring:**
+               - Analyze bundle sizes and loading times
+               - Identify potential performance bottlenecks
+               - Review database query patterns
+            
+            4. **Security Audit:**
+               - Check for potential security vulnerabilities
+               - Review authentication and authorization patterns
+               - Validate input sanitization and validation
+            
+            5. **Documentation Updates:**
+               - Verify README accuracy and completeness
+               - Check API documentation alignment with code
+               - Review inline code comments
+            
+            Create a comprehensive maintenance report with prioritized recommendations.
+          
+          allowed_tools: "Grep,Glob,Read,LS,Bash(npm audit),Bash(npm outdated),Bash(npm run lint),Bash(npm run typecheck)"
+          
+          custom_instructions: |
+            Focus on maintenance tasks that improve code quality, security, and performance.
+            Generate actionable recommendations with clear priorities.
+            Consider the specific needs of a tenant management system.
+
+  # Emergency stop mechanism
+  emergency_stop:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issue_comment' && 
+      contains(github.event.comment.body, '@claude-stop')
+    
+    steps:
+      - name: Emergency Stop All Workflows
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log('🛑 Emergency stop triggered');
+            
+            // Cancel any running Claude workflows
+            const workflows = ['Claude Analyzer Agent', 'Claude Executor Agent'];
+            
+            for (const workflow of workflows) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflow,
+                status: 'in_progress'
+              });
+              
+              for (const run of runs.data.workflow_runs) {
+                await github.rest.actions.cancelWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id
+                });
+                console.log(`Cancelled workflow run: ${run.id}`);
+              }
+            }
+            
+            // Post confirmation
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🛑 **Emergency stop executed** - All Claude workflows have been cancelled.'
+            });
+
+# Centralized configuration for all subagent workflows
+env:
+  CLAUDE_CONFIG_PATH: '.claude/subagents-config.yaml'
+  ENABLE_AUTO_ANALYSIS: true
+  ENABLE_SAFE_AUTO_EXECUTION: true
+  REQUIRE_APPROVAL_FOR_SECURITY: true
+  MAINTENANCE_SCHEDULE: daily

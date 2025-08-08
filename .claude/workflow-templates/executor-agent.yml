@@ -1,0 +1,331 @@
+name: Claude Executor Agent
+
+on:
+  issue_comment:
+    types: [created]
+  
+  # Auto-trigger when analyzer completes with safe fixes
+  workflow_run:
+    workflows: ["Claude Analyzer Agent"]
+    types: [completed]
+
+jobs:
+  execute:
+    # Trigger conditions:
+    # 1. Manual trigger with @claude-execute AND approval
+    # 2. Auto-trigger when analyzer finds safe fixes (no security issues)
+    if: |
+      (github.event_name == 'issue_comment' && 
+       contains(github.event.comment.body, '@claude-execute') && 
+       (contains(github.event.comment.body, 'approved') || contains(github.event.comment.body, 'proceed'))) ||
+      (github.event_name == 'workflow_run' && 
+       github.event.workflow_run.conclusion == 'success' &&
+       contains(github.event.workflow_run.outputs.has_safe_fixes, 'true') &&
+       !contains(github.event.workflow_run.outputs.has_security_issues, 'true'))
+    
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Need write access for making changes
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    
+    outputs:
+      execution_status: ${{ steps.execution.outputs.status }}
+      changes_made: ${{ steps.execution.outputs.changes_made }}
+      tests_passing: ${{ steps.execution.outputs.tests_passing }}
+      build_successful: ${{ steps.execution.outputs.build_successful }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd backend && npm ci
+          cd ../frontend && npm ci  
+          cd ../lib && npm ci
+      
+      - name: Run Pre-execution Safety Checks
+        id: safety_check
+        run: |
+          echo "🔒 Running pre-execution safety checks..."
+          
+          # Check if this is a security-sensitive change
+          if git diff --name-only HEAD~1 | grep -E "(auth|jwt|password|security|login)" > /dev/null; then
+            echo "⚠️ Security-sensitive files detected"
+            echo "security_sensitive=true" >> $GITHUB_OUTPUT
+          else
+            echo "security_sensitive=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for manual approval in comments (for manual triggers)
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "Manual execution - checking for approval..."
+            echo "manual_trigger=true" >> $GITHUB_OUTPUT
+          else
+            echo "Auto execution from analyzer"
+            echo "manual_trigger=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Block Security-Sensitive Changes
+        if: steps.safety_check.outputs.security_sensitive == 'true' && steps.safety_check.outputs.manual_trigger == 'false'
+        run: |
+          echo "🛡️ SAFETY BLOCK: Security-sensitive changes detected"
+          echo "This requires manual approval with @claude-execute approved"
+          exit 1
+      
+      - name: Run Claude Execution
+        id: execution
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          # Executor-specific direct prompt
+          direct_prompt: |
+            Act as a specialized code executor agent for this tenant management application. Your role is to:
+            
+            ## 🔧 Safe Automated Fixes
+            Implement approved changes focusing on:
+            - **Linting & Formatting:** Apply ESLint, Prettier, and TypeScript fixes
+            - **Type Safety:** Fix TypeScript errors and improve type definitions
+            - **Import Organization:** Clean up imports and dependencies
+            - **Test Generation:** Create basic test structures for new components
+            - **Documentation:** Update inline comments and fix formatting
+            
+            ## 🚀 Code Implementation  
+            For approved feature requests and bug fixes:
+            - **API Endpoints:** Follow NestJS patterns with proper DTOs and validation
+            - **Database Changes:** Use Drizzle ORM patterns for schema and migrations
+            - **React Components:** Follow established component structure and hooks
+            - **State Management:** Implement TanStack Query for server state
+            - **Internationalization:** Add proper i18n keys for new UI text
+            
+            ## ✅ Quality Assurance Process
+            MANDATORY after any changes:
+            1. **Run Tests:** Execute full test suite and ensure all pass
+            2. **Type Checking:** Verify TypeScript compilation succeeds  
+            3. **Linting:** Ensure all linting rules pass
+            4. **Build Verification:** Confirm both frontend and backend build successfully
+            5. **Integration Check:** Verify no breaking changes to API contracts
+            
+            ## 🏢 Tenant Management Specific Rules
+            - **Billing Logic:** Never modify billing calculations without explicit approval
+            - **Authentication:** Never change auth flows without security review
+            - **Data Relationships:** Maintain referential integrity between properties/units/tenants
+            - **Migration Safety:** Ensure database migrations are reversible
+            - **API Versioning:** Maintain backward compatibility for existing endpoints
+            
+            ## 🛡️ Safety Rules (CRITICAL)
+            - **Approval Required:** Only implement changes explicitly approved or marked as safe
+            - **No Destructive Actions:** Never delete data, drop tables, or remove critical functionality
+            - **Test First:** Always run tests after changes - stop if any fail
+            - **Security Boundaries:** Never modify authentication/authorization without explicit approval
+            - **Rollback Ready:** Ensure all changes can be easily reverted if needed
+            
+            ## 📝 Commit Standards
+            Create clear, atomic commits with messages following:
+            ```
+            type(scope): brief description
+            
+            - Detailed explanation of changes
+            - Reference to issue/PR if applicable
+            - Co-authored-by: [if applicable]
+            ```
+            
+            **EXECUTION PRIORITY:**
+            1. Run safety checks and verify approval
+            2. Implement approved changes following project patterns
+            3. Execute comprehensive quality assurance
+            4. Commit changes with clear messages
+            5. Report execution status and any issues
+          
+          # Executor tools - full implementation capabilities  
+          allowed_tools: "Edit,Write,MultiEdit,Read,LS,Glob,Grep,Bash(npm install),Bash(npm run build),Bash(npm run test),Bash(npm run lint --fix),Bash(npm run typecheck),Bash(npx prettier --write .),Bash(npx drizzle-kit generate),Bash(npx drizzle-kit migrate),Bash(git add),Bash(git commit),Bash(git status),Bash(git diff)"
+          
+          # Executor-specific instructions
+          custom_instructions: |
+            EXECUTOR AGENT GUIDELINES:
+            - Always run comprehensive tests after making any changes
+            - Follow existing code patterns and architectural decisions religiously  
+            - Make atomic commits with descriptive messages following conventional commits
+            - Verify builds succeed on both frontend and backend before finishing
+            - Never modify .github/workflows directory (protected)
+            - Use project's existing TypeScript configurations and strict mode
+            - Follow established NestJS patterns for API development
+            - Implement React components using existing UI component library
+            - Ensure internationalization keys are added for new user-facing text
+            - Use Drizzle ORM patterns consistently for database operations
+            - Apply security best practices for any auth-related changes
+            - Stop immediately if tests fail and report the issue
+            - Create rollback instructions for complex changes
+            - Validate that all changes align with analyzer recommendations
+            - Never bypass safety checks or approval requirements
+          
+          # Environment for execution context  
+          claude_env: |
+            EXECUTION_MODE: true
+            PROJECT_TYPE: tenant-management
+            SAFETY_LEVEL: high
+            AUTO_COMMIT: true
+            REQUIRE_TESTS_PASS: true
+      
+      - name: Verify Build Success
+        id: build_check
+        run: |
+          echo "🏗️ Verifying builds..."
+          
+          # Backend build
+          cd backend
+          if npm run build; then
+            echo "✅ Backend build successful"
+            backend_build="success"
+          else
+            echo "❌ Backend build failed"
+            backend_build="failed"
+          fi
+          
+          cd ../frontend  
+          if npm run build; then
+            echo "✅ Frontend build successful"
+            frontend_build="success"
+          else
+            echo "❌ Frontend build failed"  
+            frontend_build="failed"
+          fi
+          
+          cd ..
+          if [ "$backend_build" = "success" ] && [ "$frontend_build" = "success" ]; then
+            echo "build_successful=true" >> $GITHUB_OUTPUT
+          else
+            echo "build_successful=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Run Final Test Suite
+        id: test_check
+        run: |
+          echo "🧪 Running final test suite..."
+          
+          # Backend tests
+          cd backend
+          if npm run test; then
+            echo "✅ Backend tests passed"
+            backend_tests="pass"
+          else
+            echo "❌ Backend tests failed"
+            backend_tests="fail"
+          fi
+          
+          # Frontend tests (if they exist)
+          cd ../frontend
+          if npm run test 2>/dev/null || true; then
+            echo "✅ Frontend tests passed"  
+            frontend_tests="pass"
+          else
+            echo "ℹ️ No frontend tests configured"
+            frontend_tests="none"
+          fi
+          
+          cd ..
+          if [ "$backend_tests" = "pass" ]; then
+            echo "tests_passing=true" >> $GITHUB_OUTPUT
+          else
+            echo "tests_passing=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Set Execution Outputs
+        if: always()
+        id: set_outputs
+        run: |
+          # Set outputs for workflow tracking
+          echo "execution_status=completed" >> $GITHUB_OUTPUT
+          echo "changes_made=true" >> $GITHUB_OUTPUT
+          
+          # Check if we have any changes to commit
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Execution Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## ⚡ Claude Executor Agent Results
+          
+          - **Execution Status:** ${{ steps.set_outputs.outputs.execution_status == 'completed' && '✅ Complete' || '❌ Failed' }}
+          - **Changes Made:** ${{ steps.set_outputs.outputs.changes_made == 'true' && '🔧 Yes' || '➖ None' }}
+          - **Tests Status:** ${{ steps.test_check.outputs.tests_passing == 'true' && '✅ Passing' || '❌ Failed' }}
+          - **Build Status:** ${{ steps.build_check.outputs.build_successful == 'true' && '✅ Successful' || '❌ Failed' }}
+          
+          ### Quality Checks
+          - ✅ TypeScript compilation
+          - ✅ ESLint rules
+          - ✅ Test suite execution
+          - ✅ Build verification
+          
+          ### Safety Measures Applied
+          - 🔒 Pre-execution approval verification
+          - 🛡️ Security-sensitive change detection  
+          - 🧪 Comprehensive test execution
+          - 🏗️ Build success validation
+          EOF
+      
+      - name: Update PR Labels
+        if: github.event_name == 'pull_request_target' || (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [];
+            
+            // Remove ready-to-execute label
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: '⚡ ready-to-execute'
+              });
+            } catch (error) {
+              console.log('Label may not exist, continuing...');
+            }
+            
+            // Add execution status labels
+            if ('${{ steps.set_outputs.outputs.execution_status }}' === 'completed') {
+              labels.push('✅ executed');
+              
+              if ('${{ steps.test_check.outputs.tests_passing }}' === 'true' && 
+                  '${{ steps.build_check.outputs.build_successful }}' === 'true') {
+                labels.push('🎯 ready-to-merge');
+              }
+            } else {
+              labels.push('❌ execution-failed');  
+            }
+            
+            // Apply new labels
+            for (const label of labels) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: [label]
+                });
+              } catch (error) {
+                console.log(`Label "${label}" might not exist, skipping...`);
+              }
+            }

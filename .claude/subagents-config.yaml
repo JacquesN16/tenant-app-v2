@@ -1,0 +1,347 @@
+# Claude Subagents Configuration
+# This file defines the analyzer and executor agent patterns for GitHub workflows
+
+# Global settings for all Claude workflows
+global:
+  claude_action_version: "beta"
+  oauth_token_secret: "CLAUDE_CODE_OAUTH_TOKEN"
+  base_permissions:
+    contents: read
+    pull-requests: read
+    issues: read
+    id-token: write
+    actions: read
+
+# Analyzer Agent Configuration
+analyzer:
+  name: "Claude Analyzer Agent"
+  description: "Specialized agent for code analysis, security review, and planning"
+  
+  triggers:
+    # Automatic triggers
+    pull_request:
+      types: ["opened", "synchronize", "reopened"]
+      paths:
+        - "src/**/*.ts"
+        - "src/**/*.tsx"
+        - "src/**/*.js"
+        - "src/**/*.jsx"
+        - "backend/**/*.ts"
+        - "frontend/**/*.ts"
+        - "frontend/**/*.tsx"
+        - "lib/**/*.ts"
+    
+    # Manual triggers
+    issue_comment:
+      trigger_phrase: "@claude-analyze"
+    
+    # Scheduled analysis (weekly)
+    schedule:
+      cron: "0 9 * * 1"  # Every Monday at 9 AM
+  
+  role_prompt: |
+    Act as a specialized code analyzer agent. Your role is to:
+    
+    1. **Code Quality Analysis:**
+       - Review code changes for adherence to best practices
+       - Identify potential bugs, security vulnerabilities, and performance issues
+       - Check TypeScript usage, type safety, and interface consistency
+       - Validate API endpoint security and input validation
+    
+    2. **Architecture Review:**
+       - Assess component structure and reusability
+       - Review database schema changes and migrations
+       - Evaluate state management patterns (TanStack Query, Nanostores)
+       - Check for proper error handling and loading states
+    
+    3. **Testing and Documentation:**
+       - Analyze test coverage for new and modified code
+       - Identify missing tests for critical functionality
+       - Check for outdated documentation or README files
+       - Validate API documentation completeness
+    
+    4. **Project-Specific Analysis:**
+       - Review tenant management business logic correctness
+       - Check billing calculation accuracy and edge cases
+       - Validate authentication and authorization implementations
+       - Assess internationalization (i18n) coverage
+    
+    5. **Planning and Task Generation:**
+       - Create detailed task lists for identified issues
+       - Prioritize findings by severity and impact
+       - Generate actionable recommendations for the executor agent
+       - Flag items requiring manual review or approval
+    
+    **IMPORTANT:** Focus on analysis only - do not make any code changes.
+    Generate structured reports with clear priorities and actionable items.
+  
+  allowed_tools:
+    - "Grep"
+    - "Glob" 
+    - "Read"
+    - "LS"
+    - "Bash(npm run lint)"
+    - "Bash(npm run typecheck)"
+    - "Bash(npm run test --passWithNoTests)"
+    - "Bash(npm audit)"
+    - "Bash(git diff)"
+    - "Bash(git status)"
+  
+  custom_instructions: |
+    - Be thorough in analysis but avoid making changes
+    - Generate structured reports with clear priorities
+    - Flag security vulnerabilities immediately with HIGH priority
+    - Consider performance implications of changes
+    - Follow the project's TypeScript and React best practices
+    - Check for proper internationalization (English/French) support
+    - Validate database operations follow Drizzle ORM patterns
+    - Ensure new API endpoints follow NestJS conventions
+  
+  output_format: |
+    ## Analysis Report
+    
+    ### 🔍 Code Quality Issues
+    - [ ] List specific issues with file:line references
+    
+    ### 🛡️ Security Concerns  
+    - [ ] High priority security items
+    
+    ### ⚡ Performance Opportunities
+    - [ ] Performance optimization suggestions
+    
+    ### 🧪 Testing Requirements
+    - [ ] Missing or inadequate tests
+    
+    ### 📝 Documentation Updates
+    - [ ] Required documentation changes
+    
+    ### 🔧 Executor Tasks
+    - [ ] Safe automated fixes (for executor agent)
+    - [ ] Complex changes requiring approval
+
+# Executor Agent Configuration  
+executor:
+  name: "Claude Executor Agent"
+  description: "Specialized agent for implementing approved changes and fixes"
+  
+  triggers:
+    # Manual execution trigger
+    issue_comment:
+      trigger_phrase: "@claude-execute"
+      conditions:
+        - "contains(github.event.comment.body, 'approved')"
+        - "!contains(github.event.comment.body, 'security-review-required')"
+    
+    # Auto-execute safe fixes
+    workflow_run:
+      workflows: ["Claude Analyzer Agent"]
+      types: ["completed"]
+      conditions:
+        - "github.event.workflow_run.conclusion == 'success'"
+        - "contains(github.event.workflow_run.outputs.safe_fixes, 'true')"
+  
+  role_prompt: |
+    Act as a specialized code executor agent. Your role is to:
+    
+    1. **Safe Automated Fixes:**
+       - Apply linting and formatting fixes
+       - Fix TypeScript type errors and import issues  
+       - Update dependency versions (patch/minor only)
+       - Generate missing test files with basic structure
+       - Fix documentation formatting and typos
+    
+    2. **Code Implementation:**
+       - Implement approved feature requests
+       - Apply approved bug fixes
+       - Update API endpoints following existing patterns
+       - Create database migrations following project conventions
+    
+    3. **Quality Assurance:**
+       - Run full test suite after changes
+       - Verify builds succeed on both frontend and backend
+       - Check that linting and type checking pass
+       - Validate internationalization keys are properly added
+    
+    4. **Project Deployment Prep:**
+       - Update version numbers when appropriate
+       - Generate updated API documentation
+       - Create or update migration scripts
+       - Ensure all changes are properly committed with clear messages
+    
+    **SAFETY RULES:**
+    - Only make changes that have been explicitly approved or are clearly safe improvements
+    - Always run tests after making changes  
+    - Never modify authentication/security code without explicit approval
+    - Never delete data or make irreversible changes
+    - Stop and request approval if encountering unexpected issues
+  
+  allowed_tools:
+    - "Edit"
+    - "Write"
+    - "MultiEdit"
+    - "Read"
+    - "LS"
+    - "Glob"
+    - "Grep"
+    - "Bash(npm install)"
+    - "Bash(npm run build)"
+    - "Bash(npm run test)"
+    - "Bash(npm run lint --fix)"
+    - "Bash(npm run typecheck)"
+    - "Bash(npx prettier --write)"
+    - "Bash(npx drizzle-kit generate)"
+    - "Bash(npx drizzle-kit migrate)"
+    - "Bash(git add)"
+    - "Bash(git commit)"
+    - "Bash(git status)"
+    - "Bash(git diff)"
+  
+  custom_instructions: |
+    - Always run tests after making changes and ensure they pass
+    - Follow existing code patterns and architectural decisions
+    - Make atomic commits with clear, descriptive messages
+    - Verify builds succeed on both frontend and backend before finishing
+    - Never modify .github/workflows directory
+    - Use project's existing TypeScript configurations
+    - Follow NestJS and React established patterns
+    - Ensure internationalization keys are added for new user-facing text
+    - Use Drizzle ORM patterns for database operations
+    - Apply security best practices for authentication and authorization
+  
+  safety_checks:
+    pre_execution:
+      - "Verify approval comments exist for non-trivial changes"
+      - "Check that changes align with analyzer recommendations"
+      - "Confirm no security-sensitive code modifications"
+    
+    post_execution:
+      - "Run full test suite"
+      - "Verify successful builds"
+      - "Check linting and type checking pass"
+      - "Validate no regressions introduced"
+
+# Specialized Subagents for Specific Tasks
+specialized:
+  security_analyzer:
+    name: "Claude Security Analyzer"
+    description: "Deep security analysis for authentication, authorization, and data protection"
+    trigger_phrase: "@claude-security"
+    focus_areas:
+      - "JWT token handling and validation"
+      - "Password hashing and authentication flows"  
+      - "API endpoint authorization checks"
+      - "Input validation and sanitization"
+      - "Database query parameterization"
+      - "Sensitive data exposure prevention"
+    allowed_tools:
+      - "Grep"
+      - "Read" 
+      - "Bash(npm audit)"
+      - "Bash(npm run security-scan)"
+  
+  performance_optimizer:
+    name: "Claude Performance Optimizer"
+    description: "Performance analysis and optimization for React components and API endpoints"
+    trigger_phrase: "@claude-optimize"
+    focus_areas:
+      - "React component re-rendering optimization"
+      - "Bundle size analysis and code splitting"
+      - "Database query performance"
+      - "API response time optimization"
+      - "Memory usage patterns"
+    allowed_tools:
+      - "Read"
+      - "Edit"
+      - "Bash(npm run build --analyze)"
+      - "Bash(npm run lighthouse)"
+  
+  test_generator:
+    name: "Claude Test Generator"  
+    description: "Comprehensive test generation for components, services, and API endpoints"
+    trigger_phrase: "@claude-test"
+    focus_areas:
+      - "Unit tests for React components"
+      - "API endpoint testing with Jest/Supertest"
+      - "E2E tests with Playwright"
+      - "Test coverage analysis and improvement"
+    allowed_tools:
+      - "Write"
+      - "Edit"
+      - "Read"
+      - "Bash(npm run test)"
+      - "Bash(npm run test:coverage)"
+      - "Bash(npm run test:e2e)"
+
+# Workflow Orchestration
+workflows:
+  full_review_cycle:
+    name: "Complete Code Review Cycle"
+    description: "Analyzer → Human Review → Executor sequence"
+    steps:
+      1: "analyzer"
+      2: "human_approval"  # Manual step
+      3: "executor"
+  
+  automated_maintenance:
+    name: "Automated Maintenance Tasks"
+    description: "Safe automated fixes without human intervention"
+    triggers:
+      schedule: "0 2 * * *"  # Daily at 2 AM
+    steps:
+      1: "analyzer (safe fixes only)"
+      2: "executor (auto-approve safe fixes)"
+  
+  security_review:
+    name: "Security-Focused Review"
+    description: "Deep security analysis with specialized tools"
+    triggers:
+      paths:
+        - "**/auth/**"
+        - "**/jwt/**"
+        - "**/password/**"
+        - "**/security/**"
+    steps:
+      1: "security_analyzer"
+      2: "human_security_review"  # Always require human review
+      3: "executor (security approved only)"
+
+# Integration Settings
+integration:
+  github:
+    auto_assign_reviewers: true
+    require_approval_for:
+      - "security changes"
+      - "authentication modifications"
+      - "database schema changes"
+      - "API endpoint changes"
+    
+    labels:
+      analyzer_completed: "🔍 analyzed"
+      executor_ready: "⚡ ready-to-execute"
+      security_review: "🛡️ security-review"
+      performance_impact: "⚡ performance"
+  
+  notifications:
+    slack_webhook: "${SLACK_WEBHOOK_URL}"
+    teams:
+      - "frontend-team"
+      - "backend-team" 
+      - "security-team"
+
+# Environment-Specific Configurations
+environments:
+  development:
+    auto_execute_safe_fixes: true
+    require_approval_for_destructive: true
+    enable_experimental_features: true
+  
+  staging:
+    auto_execute_safe_fixes: false
+    require_approval_for_all: true
+    enable_performance_monitoring: true
+  
+  production:
+    auto_execute_safe_fixes: false
+    require_approval_for_all: true  
+    require_security_review: true
+    enable_rollback_monitoring: true

@@ -1,0 +1,254 @@
+name: Claude Analyzer Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/**/*.ts"
+      - "src/**/*.tsx" 
+      - "src/**/*.js"
+      - "src/**/*.jsx"
+      - "backend/**/*.ts"
+      - "frontend/**/*.ts"
+      - "frontend/**/*.tsx"
+      - "lib/**/*.ts"
+  
+  issue_comment:
+    types: [created]
+  
+  # Weekly automated analysis
+  schedule:
+    - cron: "0 9 * * 1"  # Every Monday at 9 AM
+
+jobs:
+  analyze:
+    # Only run on @claude-analyze mentions or automatic triggers
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude-analyze')) ||
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'schedule')
+    
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read
+    
+    outputs:
+      analysis_complete: ${{ steps.analysis.outputs.analysis_complete }}
+      has_security_issues: ${{ steps.analysis.outputs.has_security_issues }}
+      has_safe_fixes: ${{ steps.analysis.outputs.has_safe_fixes }}
+      priority_level: ${{ steps.analysis.outputs.priority_level }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comprehensive analysis
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd backend && npm ci
+          cd ../frontend && npm ci
+          cd ../lib && npm ci
+      
+      - name: Run Claude Analysis
+        id: analysis
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          # Analyzer-specific direct prompt
+          direct_prompt: |
+            Act as a specialized code analyzer agent for this tenant management application. Your role is to:
+            
+            ## 🔍 Code Quality Analysis
+            - Review code changes for adherence to TypeScript, React, and NestJS best practices
+            - Identify potential bugs, security vulnerabilities, and performance issues  
+            - Check type safety and interface consistency across frontend/backend/lib
+            - Validate API endpoint security and input validation patterns
+            
+            ## 🏗️ Architecture Review
+            - Assess component structure and reusability in React components
+            - Review database schema changes and Drizzle ORM migration patterns
+            - Evaluate state management (TanStack Query, Nanostores) usage
+            - Check for proper error handling and loading states
+            
+            ## 🧪 Testing and Documentation
+            - Analyze test coverage for new and modified code
+            - Identify missing tests for critical tenant/property/billing functionality
+            - Check for outdated documentation or missing API docs
+            - Validate README and setup instructions accuracy
+            
+            ## 🏢 Tenant Management Specific Analysis  
+            - Review business logic correctness for property/unit/tenant operations
+            - Check billing calculation accuracy and edge cases
+            - Validate authentication and authorization implementations
+            - Assess internationalization (English/French) coverage
+            - Review database relationships and data integrity
+            
+            ## 📋 Task Generation
+            Create structured output with:
+            - Clear priority levels (HIGH/MEDIUM/LOW)
+            - Specific file:line references for issues
+            - Actionable recommendations for executor agent
+            - Items requiring manual review/approval
+            
+            **CRITICAL:** Only analyze - do not make code changes. Focus on thorough analysis with actionable insights.
+            
+            ## Expected Output Format:
+            ```
+            ## 🔍 Analysis Report
+            
+            ### 🛡️ Security Issues (HIGH Priority)
+            - [ ] [file:line] Description of security concern
+            
+            ### 🐛 Bug Risks (HIGH/MEDIUM Priority) 
+            - [ ] [file:line] Description of potential bug
+            
+            ### ⚡ Performance Opportunities (MEDIUM Priority)
+            - [ ] [file:line] Performance optimization suggestion
+            
+            ### 🧪 Testing Requirements (MEDIUM Priority)
+            - [ ] Missing tests for [component/function]
+            
+            ### 📝 Documentation Updates (LOW Priority)
+            - [ ] Required documentation changes
+            
+            ### 🔧 Safe Automated Fixes
+            - [ ] Linting/formatting fixes
+            - [ ] Import organization  
+            - [ ] TypeScript type fixes
+            
+            ### ⚠️ Manual Review Required
+            - [ ] Complex changes needing approval
+            - [ ] Architecture decisions
+            - [ ] Security-sensitive modifications
+            
+            ## Summary
+            - **Security Issues Found:** [count]
+            - **Safe Fixes Available:** [yes/no]  
+            - **Manual Review Required:** [yes/no]
+            - **Overall Priority:** [HIGH/MEDIUM/LOW]
+            ```
+          
+          # Analyzer tools - read-only focus
+          allowed_tools: "Grep,Glob,Read,LS,Bash(npm run lint),Bash(npm run typecheck),Bash(npm run test --passWithNoTests),Bash(npm audit),Bash(git diff),Bash(git status)"
+          
+          # Analyzer-specific instructions
+          custom_instructions: |
+            ANALYZER AGENT GUIDELINES:
+            - Be thorough in analysis but never make code changes
+            - Generate structured reports with clear priorities and file references
+            - Flag security vulnerabilities immediately with HIGH priority
+            - Consider tenant management business logic correctness
+            - Check for proper TypeScript usage and type safety
+            - Validate NestJS patterns for API endpoints
+            - Ensure React components follow established patterns
+            - Verify internationalization (i18n) coverage for new UI text
+            - Check database operations use proper Drizzle ORM patterns
+            - Identify missing tests for critical business logic
+            - Use grep/glob extensively to understand code patterns
+            - Reference specific lines/files in recommendations
+            - Set appropriate output variables for workflow orchestration
+          
+          # Environment variables for analysis context
+          claude_env: |
+            ANALYSIS_MODE: true
+            PROJECT_TYPE: tenant-management
+            LANGUAGES: typescript,javascript,react,nestjs
+            I18N_LOCALES: en,fr
+      
+      - name: Set Analysis Outputs
+        id: set_outputs
+        run: |
+          # Parse analysis results and set workflow outputs
+          # These will be used by dependent workflows
+          echo "analysis_complete=true" >> $GITHUB_OUTPUT
+          
+          # Check for security issues in the analysis output
+          if grep -q "Security Issues.*HIGH" analysis_output.md 2>/dev/null; then
+            echo "has_security_issues=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_security_issues=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for safe automated fixes
+          if grep -q "Safe Automated Fixes" analysis_output.md 2>/dev/null; then
+            echo "has_safe_fixes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_safe_fixes=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Determine overall priority level
+          if grep -q "HIGH Priority" analysis_output.md 2>/dev/null; then
+            echo "priority_level=HIGH" >> $GITHUB_OUTPUT
+          elif grep -q "MEDIUM Priority" analysis_output.md 2>/dev/null; then
+            echo "priority_level=MEDIUM" >> $GITHUB_OUTPUT
+          else
+            echo "priority_level=LOW" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Analysis Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 🔍 Claude Analyzer Agent Results
+          
+          - **Analysis Status:** ✅ Complete
+          - **Security Issues:** ${{ steps.set_outputs.outputs.has_security_issues == 'true' && '⚠️ Found' || '✅ None' }}
+          - **Safe Fixes Available:** ${{ steps.set_outputs.outputs.has_safe_fixes == 'true' && '🔧 Yes' || '➖ None' }}
+          - **Priority Level:** ${{ steps.set_outputs.outputs.priority_level }}
+          
+          ### Next Steps
+          ${{ steps.set_outputs.outputs.has_security_issues == 'true' && '🛡️ Security review required before execution' || '' }}
+          ${{ steps.set_outputs.outputs.has_safe_fixes == 'true' && '⚡ Ready for executor agent (@claude-execute)' || '' }}
+          EOF
+      
+      - name: Label PR Based on Analysis
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [];
+            
+            // Add analysis complete label
+            labels.push('🔍 analyzed');
+            
+            // Add priority-based labels
+            const priority = '${{ steps.set_outputs.outputs.priority_level }}';
+            if (priority === 'HIGH') labels.push('🚨 high-priority');
+            
+            // Add security label if issues found  
+            if ('${{ steps.set_outputs.outputs.has_security_issues }}' === 'true') {
+              labels.push('🛡️ security-review');
+            }
+            
+            // Add executor ready label if safe fixes available
+            if ('${{ steps.set_outputs.outputs.has_safe_fixes }}' === 'true') {
+              labels.push('⚡ ready-to-execute');
+            }
+            
+            // Apply labels
+            for (const label of labels) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: [label]
+                });
+              } catch (error) {
+                console.log(`Label "${label}" might not exist, skipping...`);
+              }
+            }

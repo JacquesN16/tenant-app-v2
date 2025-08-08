@@ -1,0 +1,408 @@
+name: Claude Specialized Agents
+
+# Specialized subagents for security, performance, and testing
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  # Security Analysis Specialist
+  security_analyzer:
+    if: |
+      github.event_name == 'issue_comment' && 
+      contains(github.event.comment.body, '@claude-security')
+    
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      security-events: write  # For security scanning
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd backend && npm ci
+          cd ../frontend && npm ci
+      
+      - name: Run Security Analysis
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          direct_prompt: |
+            Act as a specialized security analyzer for this tenant management application. Focus on:
+            
+            ## 🛡️ Authentication & Authorization Security
+            - **JWT Token Handling:** Review token generation, validation, and expiration
+            - **Password Security:** Verify bcrypt usage, salt rounds, and password policies
+            - **Session Management:** Check for secure session handling and logout
+            - **Route Protection:** Validate @UseGuards() usage and authorization checks
+            - **Role-Based Access:** Ensure proper tenant/user data isolation
+            
+            ## 🔒 API Security Assessment
+            - **Input Validation:** Check DTO validation with class-validator decorators
+            - **SQL Injection Prevention:** Review Drizzle ORM query patterns
+            - **XSS Protection:** Validate input sanitization in React components
+            - **CORS Configuration:** Review cross-origin resource sharing settings
+            - **Rate Limiting:** Check for API rate limiting and abuse prevention
+            
+            ## 📊 Data Protection Analysis
+            - **Sensitive Data Exposure:** Identify potential data leaks in logs/responses
+            - **Database Security:** Review connection strings and access patterns
+            - **File Upload Security:** Check for secure file handling (if applicable)
+            - **Environment Variables:** Validate secure handling of secrets
+            - **Error Information Leakage:** Review error messages for info disclosure
+            
+            ## 🏢 Tenant Management Security
+            - **Multi-Tenancy Isolation:** Verify tenants can't access others' data
+            - **Property/Unit Access Control:** Check ownership validation
+            - **Billing Data Security:** Ensure financial data is properly protected
+            - **User Registration Security:** Review signup/login flow security
+            
+            ## 🔍 Security Vulnerability Assessment
+            Use npm audit and code analysis to identify:
+            - Known vulnerabilities in dependencies
+            - Outdated packages with security patches
+            - Insecure coding patterns
+            - Missing security headers
+            
+            Generate a comprehensive security report with:
+            - **CRITICAL:** Issues requiring immediate attention
+            - **HIGH:** Security improvements needed soon
+            - **MEDIUM:** Good practice improvements
+            - **LOW:** Minor security enhancements
+            
+            Format findings with specific file:line references and remediation steps.
+          
+          allowed_tools: "Grep,Read,LS,Bash(npm audit),Bash(npm audit --audit-level=high),Bash(npm outdated),Bash(git log --oneline -10)"
+          
+          custom_instructions: |
+            SECURITY ANALYZER GUIDELINES:
+            - Be extremely thorough with security analysis
+            - Flag potential vulnerabilities even if uncertain
+            - Provide specific remediation steps for each finding
+            - Focus on tenant data isolation and multi-tenancy security
+            - Check for proper authentication flows and JWT handling
+            - Review all user input validation thoroughly
+            - Look for potential data exposure in API responses
+            - Validate proper error handling that doesn't leak information
+            - Consider both frontend and backend security implications
+            - Generate actionable security improvement recommendations
+
+  # Performance Optimization Specialist  
+  performance_optimizer:
+    if: |
+      github.event_name == 'issue_comment' && 
+      (contains(github.event.comment.body, '@claude-optimize') || 
+       contains(github.event.comment.body, '@claude-performance'))
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd backend && npm ci
+          cd ../frontend && npm ci
+      
+      - name: Performance Analysis & Optimization
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          direct_prompt: |
+            Act as a performance optimization specialist for this tenant management application. Analyze and optimize:
+            
+            ## ⚡ Frontend Performance
+            - **React Component Optimization:**
+              - Identify unnecessary re-renders and suggest React.memo usage
+              - Review useEffect dependencies and cleanup
+              - Check for expensive calculations that need useMemo/useCallback
+              - Analyze component structure for optimization opportunities
+            
+            - **Bundle Size Analysis:**
+              - Review import statements for unused dependencies
+              - Identify opportunities for code splitting and lazy loading
+              - Check for duplicate dependencies across frontend/backend/lib
+              - Suggest tree-shaking improvements
+            
+            - **State Management Performance:**
+              - Analyze TanStack Query usage for caching optimization
+              - Review Nanostores patterns for efficient state updates
+              - Check for unnecessary API calls and data fetching
+              - Identify opportunities for background data syncing
+            
+            ## 🚀 Backend Performance  
+            - **API Endpoint Optimization:**
+              - Review database queries for N+1 problems
+              - Analyze Drizzle ORM usage for query optimization
+              - Check for proper indexing on frequently queried fields
+              - Identify opportunities for data aggregation
+            
+            - **Database Performance:**
+              - Review SQLite schema for optimization opportunities
+              - Check foreign key relationships and join patterns
+              - Analyze query patterns for tenant/property/unit relationships
+              - Suggest caching strategies for frequently accessed data
+            
+            ## 📊 Tenant Management Specific Optimizations
+            - **Multi-Tenant Data Access:**
+              - Optimize tenant-scoped queries
+              - Review property/unit listing performance
+              - Analyze billing calculation efficiency
+              - Check dashboard statistics query performance
+            
+            - **Pagination and Filtering:**
+              - Review large dataset handling
+              - Check for efficient pagination implementation
+              - Analyze search and filter performance
+              - Suggest virtual scrolling for long lists
+            
+            ## 🔧 Performance Implementation
+            For each optimization identified:
+            1. Provide specific implementation suggestions
+            2. Estimate performance impact
+            3. Include code examples where helpful
+            4. Consider trade-offs (performance vs. maintainability)
+            
+            Generate actionable optimization recommendations prioritized by impact.
+          
+          allowed_tools: "Read,Edit,Grep,Glob,LS,Bash(npm run build),Bash(npm list --depth=0),Bash(du -sh node_modules),Bash(find . -name '*.ts' -o -name '*.tsx' | wc -l)"
+          
+          custom_instructions: |
+            PERFORMANCE OPTIMIZER GUIDELINES:
+            - Focus on measurable performance improvements
+            - Consider both frontend rendering and API response times
+            - Provide specific React optimization patterns (memo, useMemo, useCallback)
+            - Suggest database query optimizations with Drizzle ORM
+            - Check for bundle size reduction opportunities
+            - Consider tenant management workflow efficiency
+            - Balance performance with code maintainability
+            - Provide implementation examples where possible
+            - Prioritize optimizations by potential impact
+            - Consider mobile performance implications
+
+  # Test Generation Specialist
+  test_generator:
+    if: |
+      github.event_name == 'issue_comment' && 
+      (contains(github.event.comment.body, '@claude-test') || 
+       contains(github.event.comment.body, '@claude-testing'))
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd backend && npm ci
+          cd ../frontend && npm ci
+      
+      - name: Comprehensive Test Generation
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          direct_prompt: |
+            Act as a comprehensive testing specialist for this tenant management application. Generate tests for:
+            
+            ## 🧪 Backend API Testing (Jest + Supertest)
+            - **Authentication Tests:**
+              - User registration, login, logout flows
+              - JWT token validation and expiration
+              - Password reset functionality
+              - Protected route access control
+            
+            - **Property Management Tests:**
+              - CRUD operations for properties
+              - Property validation rules
+              - Owner-property relationships
+              - Property type handling
+            
+            - **Unit Management Tests:**
+              - Unit creation and updates
+              - Property-unit relationships
+              - Occupancy status management
+              - Unit validation rules
+            
+            - **Tenant Management Tests:**
+              - Tenant CRUD operations
+              - Lease management
+              - Payment tracking
+              - Multi-tenant data isolation
+            
+            - **Billing System Tests:**
+              - Monthly bill generation
+              - Proration calculations
+              - Payment processing
+              - Bill status management
+            
+            ## ⚛️ Frontend Component Testing (React Testing Library)
+            - **Form Component Tests:**
+              - PropertyForm validation and submission
+              - TenantForm field interactions
+              - UnitForm error handling
+              - Form field component reusability
+            
+            - **Modal Component Tests:**
+              - Create/Edit modal interactions
+              - Modal state management
+              - Form submission within modals
+              - Modal close/cancel behavior
+            
+            - **Page Component Tests:**
+              - Dashboard statistics display
+              - Properties page filtering and searching
+              - Unit detail page functionality
+              - Authentication page flows
+            
+            - **Hook Testing:**
+              - useAuth authentication state
+              - useData API integration
+              - Custom form hooks
+              - Error handling in hooks
+            
+            ## 🎭 End-to-End Testing (Playwright)
+            - **Complete User Workflows:**
+              - User registration → property creation → unit setup → tenant assignment
+              - Bill generation → payment tracking → tenant management
+              - Property management → unit occupancy → financial tracking
+            
+            - **Cross-Browser Compatibility:**
+              - Chrome, Firefox, Safari testing
+              - Mobile responsive behavior
+              - Internationalization (English/French) switching
+            
+            ## 🏢 Tenant Management Business Logic Tests
+            - **Data Integrity Tests:**
+              - Property-unit-tenant relationships
+              - Financial calculations accuracy
+              - Date handling and lease terms
+              - Multi-currency support (if applicable)
+            
+            - **Edge Case Testing:**
+              - Boundary conditions for dates
+              - Large dataset handling
+              - Network failure scenarios
+              - Concurrent user operations
+            
+            ## 📊 Test Coverage Analysis
+            - Identify untested code paths
+            - Suggest integration test scenarios
+            - Recommend performance test cases
+            - Propose security test scenarios
+            
+            For each test area:
+            1. Generate specific test cases with describe/it structure
+            2. Include setup and teardown requirements
+            3. Mock external dependencies appropriately
+            4. Test both success and error scenarios
+            5. Ensure tests are maintainable and fast
+            
+            Create comprehensive test suites that ensure application reliability and maintainability.
+          
+          allowed_tools: "Write,Read,Edit,Grep,Glob,LS,Bash(npm run test),Bash(npm run test:coverage),Bash(npm run test:e2e)"
+          
+          custom_instructions: |
+            TEST GENERATOR GUIDELINES:
+            - Generate complete, runnable test files
+            - Follow Jest and React Testing Library best practices
+            - Include both unit and integration tests
+            - Test error scenarios and edge cases thoroughly
+            - Mock external dependencies appropriately (database, API calls)
+            - Ensure tests are fast, reliable, and maintainable
+            - Focus on tenant management business logic correctness
+            - Include accessibility testing where appropriate
+            - Generate E2E tests for critical user workflows
+            - Provide test data setup and cleanup utilities
+            - Consider multi-tenant data isolation in tests
+            - Include performance and security test suggestions
+
+  # Documentation Specialist
+  documentation_specialist:
+    if: |
+      github.event_name == 'issue_comment' && 
+      contains(github.event.comment.body, '@claude-docs')
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Documentation Analysis & Generation
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          
+          direct_prompt: |
+            Act as a documentation specialist for this tenant management application. Review and enhance:
+            
+            ## 📚 API Documentation
+            - Review NestJS controller endpoints and generate/update OpenAPI specs
+            - Document request/response schemas for all API endpoints
+            - Include authentication requirements and error responses
+            - Add code examples for common API usage patterns
+            
+            ## 🏗️ Architecture Documentation
+            - Update system architecture diagrams
+            - Document data flow between frontend/backend/database
+            - Explain multi-tenant data isolation strategies
+            - Document deployment and configuration requirements
+            
+            ## 👥 User Documentation
+            - Create user guides for property managers
+            - Document tenant management workflows
+            - Explain billing and payment tracking features
+            - Add troubleshooting guides for common issues
+            
+            ## 🛠️ Developer Documentation  
+            - Update setup and installation instructions
+            - Document code organization and conventions
+            - Explain testing strategies and procedures
+            - Add contribution guidelines and code review process
+            
+            Focus on keeping documentation accurate, helpful, and up-to-date with the current codebase.
+          
+          allowed_tools: "Write,Edit,Read,Grep,Glob,LS"
+          
+          custom_instructions: |
+            - Ensure documentation matches current code implementation
+            - Use clear, concise language appropriate for the target audience
+            - Include practical examples and common use cases
+            - Keep technical documentation up-to-date with latest changes
+            - Focus on tenant management domain-specific documentation

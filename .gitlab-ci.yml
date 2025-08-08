@@ -1,0 +1,142 @@
+stages:
+  - setup
+  - install
+  - test
+  - build
+
+variables:
+  NODE_VERSION: '18'
+
+default:
+  image: node:${NODE_VERSION}
+
+setup-lib:
+  stage: setup
+  script:
+    - cd lib
+    - npm install
+    - npm run build
+  cache:
+    key:
+      files:
+        - lib/package-lock.json
+    paths:
+      - lib/node_modules/
+  artifacts:
+    paths:
+      - lib/dist/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+install-backend:
+  stage: install
+  script:
+    - cd backend
+    - npm install
+  dependencies:
+    - setup-lib
+  needs: ["setup-lib"]
+  cache:
+    key:
+      files:
+        - backend/package-lock.json
+    paths:
+      - backend/node_modules/
+  artifacts:
+    paths:
+      - backend/node_modules/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+install-frontend:
+  stage: install
+  script:
+    - cd frontend
+    - npm install
+  dependencies:
+    - setup-lib
+  needs: ["setup-lib"]
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+  artifacts:
+    paths:
+      - frontend/node_modules/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - frontend/**/*
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+test-backend:
+  stage: test
+  script:
+    - cd backend
+    - npm test
+  dependencies:
+    - install-backend
+  needs: ["install-backend"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+test-frontend:
+  stage: test
+  image: node:20
+  script:
+    - cd frontend
+    - npx playwright install --with-deps
+    - npm run test:e2e
+  dependencies:
+    - install-frontend
+  needs: ["install-frontend"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - frontend/**/*
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+build-backend:
+  stage: build
+  script:
+    - cd backend
+    - npm run build
+  dependencies:
+    - install-backend
+  needs: ["install-backend"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+build-frontend:
+  stage: build
+  script:
+    - cd frontend
+    - npm run build
+  dependencies:
+    - install-frontend
+  needs: ["install-frontend"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - frontend/**/*
+        - lib/**/*
+    - if: '$CI_COMMIT_BRANCH == "main"'

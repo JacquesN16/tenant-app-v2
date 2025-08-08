@@ -1,0 +1,76 @@
+{
+  "users": {
+    "testUser": {
+      "email": "test@example.com",
+      "password": "password123",
+      "firstName": "Test",
+      "lastName": "User"
+    },
+    "newUser": {
+      "email": "newuser@example.com",
+      "password": "newpass123",
+      "firstName": "New",
+      "lastName": "User"
+    }
+  },
+  "properties": {
+    "testProperty": {
+      "name": "Test Apartment Building",
+      "type": "Apartment Building",
+      "address": {
+        "street": "123 Test Street",
+        "city": "Test City",
+        "state": "CA",
+        "zipCode": "90210",
+        "country": "United States"
+      }
+    },
+    "secondProperty": {
+      "name": "Test Condo Complex",
+      "type": "Condo",
+      "address": {
+        "street": "456 Another Street",
+        "city": "Another City",
+        "state": "NY",
+        "zipCode": "10001",
+        "country": "United States"
+      }
+    }
+  },
+  "units": {
+    "testUnit": {
+      "unitNumber": "101",
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "squareFootage": 800,
+      "monthlyRent": 1500
+    },
+    "secondUnit": {
+      "unitNumber": "102",
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "squareFootage": 600,
+      "monthlyRent": 1200
+    }
+  },
+  "tenants": {
+    "testTenant": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com",
+      "phone": "555-1234",
+      "monthlyRent": 1500,
+      "securityDeposit": 1500,
+      "entryDate": "2024-01-01"
+    },
+    "secondTenant": {
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "email": "jane.smith@example.com",
+      "phone": "555-5678",
+      "monthlyRent": 1200,
+      "securityDeposit": 1200,
+      "entryDate": "2024-02-01"
+    }
+  }
+}
