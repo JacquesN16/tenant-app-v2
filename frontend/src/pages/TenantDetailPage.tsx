@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, {useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, User, Calendar, Euro, Phone, Mail, Edit, Trash2, Clock, Home, AlertTriangle, CheckCircle, Receipt } from 'lucide-react';
 import { useTenant, useUnit } from '../hooks/useData';
+import type { Tenant } from '@tenant-lib/model';
 import { useUpdateTenant } from '../hooks/useUpdateTenant';
 import { Button } from '../components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
@@ -19,9 +20,23 @@ const TenantDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [softDeleteDialogOpen, setSoftDeleteDialogOpen] = useState(false);
   
-  const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useTenant(id);
+  const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useTenant(id) as { data: Tenant | undefined, isLoading: boolean, error: Error | null };
   const { data: unit, isLoading: isUnitLoading } = useUnit(tenant?.unitId);
   const { mutate: updateTenant, isPending: isUpdating } = useUpdateTenant();
+
+  const actualStay = useMemo(()=>{
+    if(!tenant){
+      return 0
+    }
+    let stay_count = Math.floor((new Date().getTime() - new Date(tenant?.entryDate).getTime()) / (1000 * 60 * 60 * 24))
+
+    if(stay_count < 0) {
+      stay_count =0
+    }
+
+    return  tenant?.entryDate ? stay_count  : 0
+
+  },[tenant])
 
   const handleEditTenant = () => {
     if (tenant) {
@@ -96,6 +111,20 @@ const TenantDetailPage: React.FC = () => {
   const leaseStatus = tenant.leaseEndDate ? 
     new Date(tenant.leaseEndDate) > new Date() ? 'active' : 'expired' : 'none';
 
+  function getTenantStatusColor(isActive: boolean) {
+    return isActive ? 'text-[var(--green-500)]' : 'text-[var(--red-500)]';
+  }
+
+  function getLeaseStatusColor(status: string) {
+    return status === 'active' ? 'text-[var(--green-500)]' : 
+      status === 'expired' ? 'text-[var(--red-500)]' : 
+      'text-[var(--token-color-foreground-faint)]';
+  }
+
+  function getLeaseEndDateColor(endDate: string | Date) {
+    return new Date(endDate) < new Date() ? 'text-[var(--red-500)]' : '';
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -106,7 +135,7 @@ const TenantDetailPage: React.FC = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-[var(--token-color-foreground-high-contrast)]">
-              {tenant.title ? `${t(`tenant.titleOptions.${tenant.title.toLowerCase()}`)} ` : ''}{tenant.firstName} {tenant.lastName}
+              {(tenant as any).title ? `${t(`tenant.titleOptions.${(tenant as any).title.toLowerCase()}`)} ` : ''}{tenant.firstName} {tenant.lastName}
             </h1>
             <div className="flex items-center gap-2 text-[var(--token-color-foreground-faint)]">
               {unit && (
@@ -170,9 +199,7 @@ const TenantDetailPage: React.FC = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className={`text-2xl font-bold ${
-                tenant.isActive ? 'text-[var(--green-500)]' : 'text-[var(--red-500)]'
-              }`}>
+              <div className={`text-2xl font-bold ${getTenantStatusColor(tenant.isActive)}`}>
                 {tenant.isActive ? 
                   <CheckCircle className="h-8 w-8 mx-auto" /> : 
                   <AlertTriangle className="h-8 w-8 mx-auto" />
@@ -199,11 +226,7 @@ const TenantDetailPage: React.FC = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className={`text-2xl font-bold ${
-                leaseStatus === 'active' ? 'text-[var(--green-500)]' : 
-                leaseStatus === 'expired' ? 'text-[var(--red-500)]' : 
-                'text-[var(--token-color-foreground-faint)]'
-              }`}>
+              <div className={`text-2xl font-bold ${getLeaseStatusColor(leaseStatus)}`}>
                 {leaseStatus === 'active' ? 
                   <CheckCircle className="h-8 w-8 mx-auto" /> : 
                   leaseStatus === 'expired' ?
@@ -224,7 +247,7 @@ const TenantDetailPage: React.FC = () => {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-[var(--token-color-foreground-primary)]">
-                {tenant.entryDate ? Math.floor((new Date().getTime() - new Date(tenant.entryDate).getTime()) / (1000 * 60 * 60 * 24)) : 0}
+                {actualStay}
               </div>
               <div className="text-sm text-[var(--token-color-foreground-faint)]">{t('common.days')} {t('tenant.inResidence')}</div>
             </div>
@@ -247,7 +270,7 @@ const TenantDetailPage: React.FC = () => {
               <div>
                 <label className="text-sm font-medium text-[var(--token-color-foreground-faint)]">{t('tenant.title')}</label>
                 <div className="text-[var(--token-color-foreground-primary)]">
-                  {tenant.title ? t(`tenant.titleOptions.${tenant.title.toLowerCase()}`) : '-'}
+                  {(tenant as any).title ? t(`tenant.titleOptions.${(tenant as any).title.toLowerCase()}`) : '-'}
                 </div>
               </div>
               <div>
@@ -354,9 +377,7 @@ const TenantDetailPage: React.FC = () => {
                     <Calendar className="h-4 w-4 text-[var(--token-color-foreground-faint)]" />
                     <div className="flex-1">
                       <div className="text-sm text-[var(--token-color-foreground-faint)]">{t('tenant.leaseEndDate')}</div>
-                      <div className={`font-semibold ${
-                        new Date(tenant.leaseEndDate) < new Date() ? 'text-[var(--red-500)]' : ''
-                      }`}>
+                      <div className={`font-semibold ${getLeaseEndDateColor(tenant.leaseEndDate)}`}>
                         {format(new Date(tenant.leaseEndDate), 'PPP')}
                       </div>
                     </div>

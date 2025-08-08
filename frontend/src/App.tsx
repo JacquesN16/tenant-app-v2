@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useStore } from '@nanostores/react';
 import NiceModal from '@ebay/nice-modal-react';
 import Layout from './components/Layout';
 import PropertiesPage from './pages/PropertiesPage';
@@ -13,8 +14,12 @@ import PrivateRoute from './components/PrivateRoute';
 import DashboardPage from './pages/DashboardPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import BillsPage from './pages/BillsPage';
+import FullPageLoading from './components/ui/FullPageLoading';
+import { loadingStore } from './stores/loadingStore';
 
 function App() {
+  const loadingState = useStore(loadingStore);
+
   return (
     <NiceModal.Provider>
       <Router>
@@ -43,6 +48,12 @@ function App() {
             }
           />
         </Routes>
+        {loadingState.isLoading && (
+          <FullPageLoading 
+            message={loadingState.message} 
+            size={loadingState.size} 
+          />
+        )}
       </Router>
     </NiceModal.Provider>
   );

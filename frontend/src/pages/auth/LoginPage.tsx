@@ -13,6 +13,11 @@ const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const { login } = useAuth();
 
+  // Styling function for form field validation
+  function getFieldErrorStyle(hasError: boolean) {
+    return hasError ? 'border-red-500 ring-2 ring-red-200' : '';
+  }
+
   const formik = useFormik({
     initialValues: {
       email: '',
@@ -57,9 +62,7 @@ const LoginPage: React.FC = () => {
                   id="emailaddress"
                   placeholder={t('auth.enterEmail')}
                   {...formik.getFieldProps('email')}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                    formik.touched.email && formik.errors.email ? 'border-red-500 ring-2 ring-red-200' : ''
-                  }`}
+                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${getFieldErrorStyle(!!(formik.touched.email && formik.errors.email))}`}
                 />
                 {formik.touched.email && formik.errors.email ? (
                   <div className="text-red-500 text-sm mt-1 flex items-center">
@@ -85,9 +88,7 @@ const LoginPage: React.FC = () => {
                   id="password"
                   placeholder={t('auth.enterPassword')}
                   {...formik.getFieldProps('password')}
-                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                    formik.touched.password && formik.errors.password ? 'border-red-500 ring-2 ring-red-200' : ''
-                  }`}
+                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${getFieldErrorStyle(!!(formik.touched.password && formik.errors.password))}`}
                 />
                 {formik.touched.password && formik.errors.password ? (
                   <div className="text-red-500 text-sm mt-1 flex items-center">

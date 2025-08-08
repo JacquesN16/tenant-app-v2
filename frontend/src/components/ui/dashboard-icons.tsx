@@ -50,9 +50,14 @@ export const DashboardIcons = {
     </svg>
   )
 };
+export interface Lease {
+  id: string;
+  name: string;
+  leaseEndDate: Date;
+  daysUntilExpiry: number;
+}
 
 export interface DashboardStats {
-  // Basic stats
   totalProperties: number;
   totalUnits: number;
   totalTenants: number;
@@ -63,7 +68,6 @@ export interface DashboardStats {
   };
   occupancyRate: number;
 
-  // Financial stats
   totalMonthlyRevenue: number;
   outstandingAmount: number;
   outstandingBillsCount: number;
@@ -77,12 +81,7 @@ export interface DashboardStats {
     monthlyRent: number;
     isActive: boolean;
   }>;
-  upcomingLeaseExpirations: Array<{
-    id: string;
-    name: string;
-    leaseEndDate: Date;
-    daysUntilExpiry: number;
-  }>;
+  upcomingLeaseExpirations: Array<Lease>;
 
   // Property insights
   propertyTypeBreakdown: Record<string, number>;

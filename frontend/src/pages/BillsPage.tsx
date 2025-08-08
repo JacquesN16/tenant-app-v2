@@ -28,6 +28,12 @@ const BillsPage = () => {
     }
   };
 
+
+  function getBillCardStyle (isPaid: boolean) {
+    return isPaid ? 'border-green-500' : 'border-red-500'
+  };
+
+
   if (isLoading || isTenantLoading) {
     return <div className="text-muted-foreground">{t('bills.loading')}</div>;
   }
@@ -43,7 +49,7 @@ const BillsPage = () => {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {bills.map((bill) => (
-          <Card key={bill.id} className={bill.isPaid ? 'border-green-500' : 'border-red-500'}>
+          <Card key={bill.id} className={getBillCardStyle(bill.isPaid)}>
             <CardHeader>
               <CardTitle>{t('bills.billFor')}{bill.month}/{bill.year}</CardTitle>
             </CardHeader>

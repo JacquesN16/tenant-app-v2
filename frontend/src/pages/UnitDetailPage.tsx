@@ -80,6 +80,31 @@ const UnitDetailPage: React.FC = () => {
   const leaseStatus = tenant?.leaseEndDate ? 
     new Date(tenant.leaseEndDate) > new Date() ? 'active' : 'expired' : 'none';
 
+  // Styling functions for conditional displays
+  function getUnitStatusColor(isOccupied: boolean) {
+    return isOccupied ? 'text-[var(--green-500)]' : 'text-[var(--red-500)]';
+  }
+
+  function getUnitStatusBadgeStyle(isOccupied: boolean) {
+    return isOccupied 
+      ? 'bg-[var(--green-100)] text-[var(--green-800)]'
+      : 'bg-[var(--red-100)] text-[var(--red-800)]';
+  }
+
+  function getLeaseStatusColor(status: string) {
+    return status === 'active' ? 'text-[var(--green-500)]' : 
+      status === 'expired' ? 'text-[var(--red-500)]' : 
+      'text-[var(--token-color-foreground-faint)]';
+  }
+
+  function getTenantStatusColor(isActive: boolean) {
+    return isActive ? 'text-[var(--green-500)]' : 'text-[var(--red-500)]';
+  }
+
+  function getLeaseEndDateColor(endDate: string | Date) {
+    return new Date(endDate) < new Date() ? 'text-[var(--red-500)]' : '';
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -126,9 +151,7 @@ const UnitDetailPage: React.FC = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className={`text-2xl font-bold ${
-                unit.isOccupied ? 'text-[var(--green-500)]' : 'text-[var(--red-500)]'
-              }`}>
+              <div className={`text-2xl font-bold ${getUnitStatusColor(unit.isOccupied)}`}>
                 {unit.isOccupied ? 
                   <CheckCircle className="h-8 w-8 mx-auto" /> : 
                   <AlertTriangle className="h-8 w-8 mx-auto" />
@@ -157,11 +180,7 @@ const UnitDetailPage: React.FC = () => {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${
-                    leaseStatus === 'active' ? 'text-[var(--green-500)]' : 
-                    leaseStatus === 'expired' ? 'text-[var(--red-500)]' : 
-                    'text-[var(--token-color-foreground-faint)]'
-                  }`}>
+                  <div className={`text-2xl font-bold ${getLeaseStatusColor(leaseStatus)}`}>
                     {leaseStatus === 'active' ? 
                       <CheckCircle className="h-8 w-8 mx-auto" /> : 
                       leaseStatus === 'expired' ?
@@ -181,9 +200,7 @@ const UnitDetailPage: React.FC = () => {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${
-                    tenant.isActive ? 'text-[var(--green-500)]' : 'text-[var(--red-500)]'
-                  }`}>
+                  <div className={`text-2xl font-bold ${getTenantStatusColor(tenant.isActive)}`}>
                     {tenant.isActive ? 
                       <CheckCircle className="h-8 w-8 mx-auto" /> : 
                       <AlertTriangle className="h-8 w-8 mx-auto" />
@@ -219,11 +236,7 @@ const UnitDetailPage: React.FC = () => {
             
             <div>
               <label className="text-sm font-medium text-[var(--token-color-foreground-faint)]">{t('unit.status')}</label>
-              <div className={`inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${
-                unit.isOccupied 
-                  ? 'bg-[var(--green-100)] text-[var(--green-800)]'
-                  : 'bg-[var(--red-100)] text-[var(--red-800)]'
-              }`}>
+              <div className={`inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${getUnitStatusBadgeStyle(unit.isOccupied)}`}>
                 {unit.isOccupied ? t('unit.occupied') : t('unit.vacant')}
               </div>
             </div>
@@ -356,9 +369,7 @@ const UnitDetailPage: React.FC = () => {
                         <Calendar className="h-4 w-4 text-[var(--token-color-foreground-faint)]" />
                         <div>
                           <div className="text-sm text-[var(--token-color-foreground-faint)]">{t('tenant.leaseEndDate')}</div>
-                          <div className={`font-semibold ${
-                            new Date(tenant.leaseEndDate) < new Date() ? 'text-[var(--red-500)]' : ''
-                          }`}>
+                          <div className={`font-semibold ${getLeaseEndDateColor(tenant.leaseEndDate)}`}>
                             {new Date(tenant.leaseEndDate).toLocaleDateString()}
                           </div>
                         </div>

@@ -87,6 +87,19 @@ const PropertyDetailPage: React.FC = () => {
   const totalUnits = property.units?.length || 0;
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits.length / totalUnits) * 100) : 0;
 
+  // Styling functions for unit display
+  function getUnitCardStyle(isOccupied: boolean) {
+    return isOccupied 
+      ? 'border-[var(--green-200)] bg-[var(--green-50)]' 
+      : 'border-[var(--red-200)] bg-[var(--red-50)]';
+  }
+
+  function getUnitStatusStyle(isOccupied: boolean) {
+    return isOccupied 
+      ? 'bg-[var(--green-100)] text-[var(--green-800)]'
+      : 'bg-[var(--red-100)] text-[var(--red-800)]';
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -222,9 +235,7 @@ const PropertyDetailPage: React.FC = () => {
                 {property.units?.map((unit: Unit) => (
                   <Card 
                     key={unit.id} 
-                    className={`transition-all hover:shadow-md cursor-pointer ${
-                      unit.isOccupied ? 'border-[var(--green-200)] bg-[var(--green-50)]' : 'border-[var(--red-200)] bg-[var(--red-50)]'
-                    }`}
+                    className={`transition-all hover:shadow-md cursor-pointer ${getUnitCardStyle(unit.isOccupied)}`}
                     onClick={() => unit.isOccupied && handleUnitClick(unit.id)}
                   >
                     <CardContent className="pt-4">
@@ -233,11 +244,7 @@ const PropertyDetailPage: React.FC = () => {
                           <h4 className="font-semibold text-[var(--token-color-foreground-high-contrast)]">
                             {t('unit.unit')} {unit.unitNumber}
                           </h4>
-                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            unit.isOccupied 
-                              ? 'bg-[var(--green-100)] text-[var(--green-800)]'
-                              : 'bg-[var(--red-100)] text-[var(--red-800)]'
-                          }`}>
+                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getUnitStatusStyle(unit.isOccupied)}`}>
                             {unit.isOccupied ? t('unit.occupied') : t('unit.vacant')}
                           </div>
                         </div>

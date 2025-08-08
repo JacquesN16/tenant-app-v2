@@ -29,7 +29,6 @@ const updateUserProfile = async (updatedUser: Partial<UserProfile>): Promise<Use
 const AccountSettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -53,13 +52,6 @@ const AccountSettingsPage: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (userProfile?.avatarUrl) {
-      setAvatarPreview(userProfile.avatarUrl);
-    }
-  }, [userProfile]);
-
-  React.useEffect(() => {
-    // Apply theme to document
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -75,7 +67,7 @@ const AccountSettingsPage: React.FC = () => {
       lastName: userProfile?.lastName || '',
       email: userProfile?.email || '',
       phone: userProfile?.phone || '',
-      address: userProfile?.address || { street: '', city: '', zipCode: '', country: '' },
+      address: userProfile?.address || { street: '', city: '', state: '', zipCode: '', country: '' },
       avatarUrl: userProfile?.avatarUrl || '',
     },
     validationSchema: Yup.object({
@@ -95,11 +87,6 @@ const AccountSettingsPage: React.FC = () => {
       updateUserMutation.mutate(values);
     },
   });
-
-  const handleAvatarUrlChange = (url: string) => {
-    formik.setFieldValue('avatarUrl', url);
-    setAvatarPreview(url);
-  };
 
   const handleLanguageChange = (language: string) => {
     i18n.changeLanguage(language);

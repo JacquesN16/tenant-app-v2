@@ -1,29 +1,51 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardStats } from '../api/dashboard';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useGlobalLoading } from '../stores/loadingStore';
 import { StatsGrid } from '@/components/ui/stats-grid';
 import { UnitOccupancyChart } from '@/components/ui/unit-occupancy-chart';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Users, TrendingUp } from 'lucide-react';
+import type { Tenant } from '@tenant-lib/model';
+import type {Lease} from "@/components/ui/dashboard-icons.tsx";
 
 const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { showLoading, hideLoading } = useGlobalLoading();
   const { data: stats, isLoading } = useQuery({ 
     queryKey: ['dashboardStats'], 
     queryFn: getDashboardStats 
   });
 
+  useEffect(() => {
+    if (isLoading) {
+      showLoading(t('dashboard.loadingData'));
+    } else {
+      hideLoading();
+    }
+  }, [isLoading, showLoading, hideLoading, t]);
+
   const handleTenantClick = (tenantId: string) => {
     navigate(`/tenants/${tenantId}`);
   };
 
-  if (isLoading) {
-    return <LoadingSpinner message={t('dashboard.loadingData')} />;
+  // Styling functions for conditional displays
+  function getTenantStatusStyle(isActive: boolean) {
+    return isActive 
+      ? 'bg-green-100 text-green-800' 
+      : 'bg-red-100 text-red-800';
   }
+
+  function getLeaseExpiryStyle(daysUntilExpiry: number) {
+    return daysUntilExpiry <= 30 
+      ? 'bg-red-100 text-red-800' 
+      : 'bg-orange-100 text-orange-800';
+  }
+
+  // Loading is handled globally now
 
   if (!stats) {
     return (
@@ -63,25 +85,21 @@ const DashboardPage: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             {stats.recentTenants.length > 0 ? (
-              stats.recentTenants.map((tenant: any) => (
+              stats.recentTenants.map((tenant: Tenant) => (
                 <div 
                   key={tenant.id} 
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
                   onClick={() => handleTenantClick(tenant.id)}
                 >
                   <div>
-                    <p className="font-medium">{tenant.name}</p>
+                    <p className="font-medium">{tenant.firstName} {tenant.lastName}</p>
                     <p className="text-sm text-gray-600">
                       {t('dashboard.movedIn')}{new Date(tenant.entryDate).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">€{tenant.monthlyRent}</p>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      tenant.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`text-xs px-2 py-1 rounded-full ${getTenantStatusStyle(tenant.isActive)}`}>
                       {tenant.isActive ? t('tenant.statusValues.active') : t('tenant.statusValues.inactive')}
                     </span>
                   </div>
@@ -103,7 +121,7 @@ const DashboardPage: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             {stats.upcomingLeaseExpirations.length > 0 ? (
-              stats.upcomingLeaseExpirations.map((lease: any) => (
+              stats.upcomingLeaseExpirations.map((lease: Lease) => (
                 <div key={lease.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border-l-4 border-orange-400">
                   <div>
                     <p className="font-medium">{lease.name}</p>
@@ -112,11 +130,7 @@ const DashboardPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className={`text-sm font-medium px-2 py-1 rounded-full ${
-                      lease.daysUntilExpiry <= 30 
-                        ? 'bg-red-100 text-red-800' 
-                        : 'bg-orange-100 text-orange-800'
-                    }`}>
+                    <span className={`text-sm font-medium px-2 py-1 rounded-full ${getLeaseExpiryStyle(lease.daysUntilExpiry)}`}>
                       {lease.daysUntilExpiry} {t('common.days')}
                     </span>
                   </div>
