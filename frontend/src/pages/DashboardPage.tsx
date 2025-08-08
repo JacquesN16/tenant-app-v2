@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { getDashboardStats } from '../api/dashboard';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { StatsGrid } from '@/components/ui/stats-grid';
@@ -10,10 +11,15 @@ import { AlertTriangle, Users, TrendingUp } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { data: stats, isLoading } = useQuery({ 
     queryKey: ['dashboardStats'], 
     queryFn: getDashboardStats 
   });
+
+  const handleTenantClick = (tenantId: string) => {
+    navigate(`/tenants/${tenantId}`);
+  };
 
   if (isLoading) {
     return <LoadingSpinner message={t('dashboard.loadingData')} />;
@@ -58,7 +64,11 @@ const DashboardPage: React.FC = () => {
           <CardContent className="space-y-3">
             {stats.recentTenants.length > 0 ? (
               stats.recentTenants.map((tenant: any) => (
-                <div key={tenant.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div 
+                  key={tenant.id} 
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleTenantClick(tenant.id)}
+                >
                   <div>
                     <p className="font-medium">{tenant.name}</p>
                     <p className="text-sm text-gray-600">

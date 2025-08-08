@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import UnitDetailPage from './pages/UnitDetailPage';
+import TenantDetailPage from './pages/TenantDetailPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
@@ -33,6 +34,7 @@ function App() {
                     <Route path="/account-settings" element={<AccountSettingsPage />}/>
                     <Route path="/properties/:id" element={<PropertyDetailPage />} />
                     <Route path="/units/:id" element={<UnitDetailPage />} />
+                    <Route path="/tenants/:id" element={<TenantDetailPage />} />
                     <Route path="/bills/tenant/:tenantId" element={<BillsPage />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>

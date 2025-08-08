@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Home, User, Bed, Bath, Square, Calendar, Euro, Phone, Mail, Edit, Plus, Receipt, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Home, User, Bed, Bath, Square, Calendar, Euro, Phone, Mail, Edit, Plus, Receipt, AlertTriangle, CheckCircle, Clock, Eye } from 'lucide-react';
 import { useUnit, useTenant } from '../hooks/useData';
 import { Button } from '../components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
@@ -378,12 +378,18 @@ const UnitDetailPage: React.FC = () => {
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-4">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={handleEditTenant}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-4">
+                  <Link to={`/tenants/${tenant.id}`}>
+                    <Button variant="primary" size="sm" className="w-full">
+                      <Eye className="h-4 w-4 mr-2" />
+                      {t('tenant.viewProfile')}
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="sm" onClick={handleEditTenant}>
                     <Edit className="h-4 w-4 mr-2" />
                     {t('tenant.editTenant')}
                   </Button>
-                  <Link to={`/bills/tenant/${tenant.id}`} className="flex-1">
+                  <Link to={`/bills/tenant/${tenant.id}`}>
                     <Button variant="outline" size="sm" className="w-full">
                       <Receipt className="h-4 w-4 mr-2" />
                       {t('tenant.viewBills')}
