@@ -19,6 +19,8 @@ export const users = pgTable('users', {
   address: jsonb('address'),
   avatarUrl: text('avatarUrl'),
   propertyIds: jsonb('propertyIds'),
+  language: text('language').default('en'),
+  theme: text('theme').default('light'),
   createdAt: timestamp('createdAt').defaultNow(),
   updatedAt: timestamp('updatedAt').defaultNow(),
   password: text('password'),

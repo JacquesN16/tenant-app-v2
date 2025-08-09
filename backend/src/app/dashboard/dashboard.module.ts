@@ -8,7 +8,13 @@ import { BillModule } from '../bill/bill.module';
 import { DatabaseModule } from '../../database/database.module';
 
 @Module({
-  imports: [PropertyModule, TenantModule, UnitModule, BillModule, DatabaseModule],
+  imports: [
+    PropertyModule,
+    TenantModule,
+    UnitModule,
+    BillModule,
+    DatabaseModule,
+  ],
   controllers: [DashboardController],
   providers: [DashboardService],
 })

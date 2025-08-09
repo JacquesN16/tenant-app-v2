@@ -446,7 +446,7 @@ i18n
             getStartedToday: 'Commencez avec votre tableau de bord de gestion immobilière dès aujourd\'hui',
           },
           accountSettings: {
-            title: 'Paramètres du compte',
+            title: 'Paramètres',
             subtitle: 'Gérez vos informations personnelles et préférences',
             updateProfile: 'Mettre à jour le profil',
             avatarUrl: 'URL de l\'avatar',

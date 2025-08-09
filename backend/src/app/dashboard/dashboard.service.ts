@@ -25,57 +25,75 @@ export class DashboardService {
     const occupiedUnits = units.filter((unit) => unit.isOccupied).length;
     const vacantUnits = units.length - occupiedUnits;
     const activeTenants = allTenants.filter((tenant) => tenant.isActive).length;
-    const occupancyRate = units.length > 0 ? (occupiedUnits / units.length) * 100 : 0;
+    const occupancyRate =
+      units.length > 0 ? (occupiedUnits / units.length) * 100 : 0;
 
     // Revenue calculations
     const totalMonthlyRevenue = allTenants
       .filter((tenant) => tenant.isActive)
-      .reduce((sum, tenant) => sum + (tenant.monthlyRent || 0) + (tenant.monthlyCharge || 0), 0);
+      .reduce(
+        (sum, tenant) =>
+          sum + (tenant.monthlyRent || 0) + (tenant.monthlyCharge || 0),
+        0,
+      );
 
     // Recent bills and payment stats
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
-    
+
     const currentMonthBills = await this.databaseService
       .getDb()
       .select()
       .from(bills)
       .where(and(eq(bills.month, currentMonth), eq(bills.year, currentYear)));
 
-    const outstandingBills = currentMonthBills.filter(bill => !bill.isPaid);
-    const outstandingAmount = outstandingBills.reduce((sum, bill) => sum + bill.amount, 0);
-    const collectionRate = currentMonthBills.length > 0 
-      ? ((currentMonthBills.length - outstandingBills.length) / currentMonthBills.length) * 100 
-      : 100;
+    const outstandingBills = currentMonthBills.filter((bill) => !bill.isPaid);
+    const outstandingAmount = outstandingBills.reduce(
+      (sum, bill) => sum + bill.amount,
+      0,
+    );
+    const collectionRate =
+      currentMonthBills.length > 0
+        ? ((currentMonthBills.length - outstandingBills.length) /
+            currentMonthBills.length) *
+          100
+        : 100;
 
     // Recent activity - last 5 tenants
     const recentTenants = allTenants
-      .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime(),
+      )
       .slice(0, 5)
-      .map(tenant => ({
+      .map((tenant) => ({
         id: tenant.id,
         name: `${tenant.firstName} ${tenant.lastName}`,
         entryDate: tenant.entryDate,
         monthlyRent: tenant.monthlyRent,
-        isActive: tenant.isActive
+        isActive: tenant.isActive,
       }));
 
     // Lease expiration alerts (next 90 days)
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-    
+
     const upcomingLeaseExpirations = allTenants
-      .filter(tenant => 
-        tenant.isActive && 
-        tenant.leaseEndDate && 
-        new Date(tenant.leaseEndDate) <= threeMonthsFromNow &&
-        new Date(tenant.leaseEndDate) >= new Date()
+      .filter(
+        (tenant) =>
+          tenant.isActive &&
+          tenant.leaseEndDate &&
+          new Date(tenant.leaseEndDate) <= threeMonthsFromNow &&
+          new Date(tenant.leaseEndDate) >= new Date(),
       )
-      .map(tenant => ({
+      .map((tenant) => ({
         id: tenant.id,
         name: `${tenant.firstName} ${tenant.lastName}`,
         leaseEndDate: tenant.leaseEndDate,
-        daysUntilExpiry: Math.ceil((new Date(tenant.leaseEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+        daysUntilExpiry: Math.ceil(
+          (new Date(tenant.leaseEndDate).getTime() - new Date().getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
       }))
       .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
 
@@ -110,7 +128,10 @@ export class DashboardService {
 
       // Property insights
       propertyTypeBreakdown,
-      avgUnitsPerProperty: properties.length > 0 ? Math.round((units.length / properties.length) * 100) / 100 : 0,
+      avgUnitsPerProperty:
+        properties.length > 0
+          ? Math.round((units.length / properties.length) * 100) / 100
+          : 0,
     };
   }
 }

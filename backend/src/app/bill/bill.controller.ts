@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Put, Post, UseGuards, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Put,
+  Post,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { BillService } from './bill.service';
 import { BillEntity } from './bill.entity';
@@ -43,17 +51,17 @@ export class BillController {
   ): Promise<void> {
     try {
       const pdfBuffer = await this.pdfService.generateReceiptPdf(id);
-      
+
       res.set({
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="quittance-${id}.pdf"`,
         'Content-Length': pdfBuffer.length,
       });
-      
+
       res.send(pdfBuffer);
     } catch (error) {
-      res.status(400).json({ 
-        message: error.message || 'Failed to generate receipt' 
+      res.status(400).json({
+        message: error.message || 'Failed to generate receipt',
       });
     }
   }

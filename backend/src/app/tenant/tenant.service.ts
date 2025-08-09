@@ -5,7 +5,7 @@ import { UnitService } from '../unit/unit.service';
 import { DatabaseService } from '../../database/database.service';
 import { tenants, units } from '../../database/schema';
 import { eq } from 'drizzle-orm';
-import {convertToDate} from "../../helper/utils";
+import { convertToDate } from '../../helper/utils';
 
 @Injectable()
 export class TenantService {

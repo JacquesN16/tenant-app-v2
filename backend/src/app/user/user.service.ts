@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { users } from '../../database/schema';
-import { UpdateUserDto } from './user.dto';
+import { UpdateUserDto, UpdateUserPreferencesDto } from './user.dto';
 import { eq } from 'drizzle-orm';
 import { User } from 'src/user.entity';
 import { Address } from '@tenant-lib/model';
@@ -48,6 +48,40 @@ export class UserService {
       .getDb()
       .update(users)
       .set(updateUserDto)
+      .where(eq(users.id, id))
+      .returning();
+
+    const { password, resetPasswordToken, resetPasswordExpires, ...result } =
+      updatedUser[0];
+    return {
+      ...result,
+      address: result.address as Address,
+      propertyIds: result.propertyIds as string[],
+    };
+  }
+
+  async updateUserPreferences(
+    id: string,
+    updateUserPreferencesDto: UpdateUserPreferencesDto,
+  ): Promise<Omit<User, 'password'>> {
+    const [user] = await this.databaseService
+      .getDb()
+      .select()
+      .from(users)
+      .where(eq(users.id, id));
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const updatedUser = await this.databaseService
+      .getDb()
+      .update(users)
+      .set({
+        language: updateUserPreferencesDto.language,
+        theme: updateUserPreferencesDto.theme,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, id))
       .returning();
 

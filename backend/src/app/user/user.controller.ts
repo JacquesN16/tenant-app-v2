@@ -1,6 +1,6 @@
 import { Controller, Get, Put, Body, UseGuards, Req } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UpdateUserDto } from './user.dto';
+import { UpdateUserDto, UpdateUserPreferencesDto } from './user.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { User } from '../../user.entity';
 
@@ -22,5 +22,17 @@ export class UserController {
   ): Promise<Omit<User, 'password'>> {
     const userId = req.user.id;
     return this.userService.updateUser(userId, updateUserDto);
+  }
+
+  @Put('preferences')
+  async updatePreferences(
+    @Req() req,
+    @Body() updateUserPreferencesDto: UpdateUserPreferencesDto,
+  ): Promise<Omit<User, 'password'>> {
+    const userId = req.user.id;
+    return this.userService.updateUserPreferences(
+      userId,
+      updateUserPreferencesDto,
+    );
   }
 }
