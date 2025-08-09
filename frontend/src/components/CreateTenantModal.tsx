@@ -25,8 +25,6 @@ const CreateTenantModal = NiceModal.create<CreateTenantModalProps>(({ preSelecte
     });
   };
 
-  // If preSelectedUnitId is provided, include it even if occupied (for share houses)
-  // Otherwise, only show vacant units
   const availableUnits = preSelectedUnitId 
     ? units?.filter(unit => unit.id === preSelectedUnitId || !unit.isOccupied) || []
     : units?.filter(unit => !unit.isOccupied) || [];
@@ -36,7 +34,7 @@ const CreateTenantModal = NiceModal.create<CreateTenantModalProps>(({ preSelecte
     : undefined;
 
   return (
-    <Dialog open={modal.visible} onOpenChange={modal.hide}>
+    <Dialog open={modal.visible} onOpenChange={modal.hide} modal={true} className='w-80'>
       <DialogContent className="bg-card text-foreground border border-border">
         <DialogHeader>
           <DialogTitle className="text-foreground">{t('tenant.createTenant')}</DialogTitle>

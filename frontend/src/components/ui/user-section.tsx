@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/hooks/useUser.ts';
 import { LogOut, User } from 'lucide-react';
+import {t} from "i18next";
 
 export const UserSection: React.FC = () => {
   const { data: user, isLoading, error } = useUser();
@@ -162,7 +163,7 @@ export const UserSection: React.FC = () => {
               style={{ color: 'var(--token-color-foreground-primary)' }}
             >
               <User className="w-4 h-4 mr-3" />
-              Account Settings
+              {t("accountSettings.title")}
             </button>
             <button
               onClick={handleLogout}

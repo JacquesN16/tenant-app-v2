@@ -19,6 +19,8 @@ export type User = {
   address?: Address;
   avatarUrl?: string;
   propertyIds?: string[]; // To link to the properties they own
+  language?: string; // User's preferred language (e.g., 'en', 'fr')
+  theme?: string; // User's preferred theme (e.g., 'light', 'dark')
   createdAt?: Date;
   updatedAt?: Date;
 };
