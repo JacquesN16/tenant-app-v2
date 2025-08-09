@@ -5,12 +5,22 @@ import NiceModal from '@ebay/nice-modal-react';
 import CreatePropertyModal from '../components/CreatePropertyModal';
 import {useProperties} from "../hooks/useData.ts";
 import { Button } from '../components/ui/button';
+import { useGlobalLoading } from '../stores/loadingStore';
 
 import CreateTenantModal from '../components/CreateTenantModal';
 
 const PropertiesPage: React.FC = () => {
   const { t } = useTranslation();
+  const { showLoading, hideLoading } = useGlobalLoading();
   const { data: properties, isLoading, isError, error } = useProperties();
+
+  React.useEffect(() => {
+    if (isLoading) {
+      showLoading(t('common.loading'));
+    } else {
+      hideLoading();
+    }
+  }, [isLoading, showLoading, hideLoading, t]);
 
   const handleCreateNewProperty = () => {
     NiceModal.show(CreatePropertyModal);
@@ -20,24 +30,6 @@ const PropertiesPage: React.FC = () => {
     NiceModal.show(CreateTenantModal);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex items-center space-x-3">
-          <div 
-            className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: 'var(--token-color-foreground-action)' }}
-          ></div>
-          <span 
-            className="hds-typography-body-200"
-            style={{ color: 'var(--token-color-foreground-faint)' }}
-          >
-            {t('common.loading')}
-          </span>
-        </div>
-      </div>
-    );
-  }
 
   if (isError) {
     return (

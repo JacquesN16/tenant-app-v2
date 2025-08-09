@@ -59,17 +59,39 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6" style={{ color: 'var(--token-color-foreground-primary)' }}>
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">{t('dashboard.title')}</h1>
-        <p className="text-gray-600">{t('dashboard.overview')}</p>
-      </div>
 
-      {/* Stats Grid */}
       <StatsGrid stats={stats} />
 
+      {/* Property Type Breakdown */}
+      {Object.keys(stats.propertyTypeBreakdown).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                {t('dashboard.portfolioBreakdown')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-4 gap-1">
+                {Object.entries(stats.propertyTypeBreakdown).map(([type, count]: [string, any]) => (
+                    <div key={type} className="text-center p-4 bg-gray-50 rounded-lg border-1">
+                      <p className="text-2xl font-bold text-blue-600">{count}</p>
+                      <p className="text-sm text-gray-600 capitalize">
+                        {type.toLowerCase().replace('_', ' ')}
+                      </p>
+                    </div>
+                ))}
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600">{stats.avgUnitsPerProperty}</p>
+                  <p className="text-sm text-gray-600">{t('dashboard.avgUnitsPerProperty')}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+      )}
+
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Unit Status Chart */}
         <div className="lg:col-span-1">
           <UnitOccupancyChart unitStatus={stats.unitStatus} />
@@ -143,33 +165,7 @@ const DashboardPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Property Type Breakdown */}
-      {Object.keys(stats.propertyTypeBreakdown).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              {t('dashboard.portfolioBreakdown')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(stats.propertyTypeBreakdown).map(([type, count]: [string, any]) => (
-                <div key={type} className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{count}</p>
-                  <p className="text-sm text-gray-600 capitalize">
-                    {type.toLowerCase().replace('_', ' ')}
-                  </p>
-                </div>
-              ))}
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">{stats.avgUnitsPerProperty}</p>
-                <p className="text-sm text-gray-600">{t('dashboard.avgUnitsPerProperty')}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   );
 };

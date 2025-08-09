@@ -10,6 +10,7 @@ import EditPropertyModal from '../components/EditPropertyModal';
 import { useDeleteProperty } from '../hooks/useDeleteProperty.ts';
 import { Button } from '../components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { useGlobalLoading } from '../stores/loadingStore';
 
 const PropertyDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,15 @@ const PropertyDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: property, isLoading, error } = useProperty(id);
   const { mutate: deleteProperty } = useDeleteProperty();
+  const { showLoading, hideLoading } = useGlobalLoading();
+
+  React.useEffect(() => {
+    if (isLoading) {
+      showLoading(t('common.loading'));
+    } else {
+      hideLoading();
+    }
+  }, [isLoading, showLoading, hideLoading, t]);
 
   const handleAddUnit = () => {
     NiceModal.show(CreateUnitModal, { propertyId: property?.id });
@@ -42,14 +52,6 @@ const PropertyDetailPage: React.FC = () => {
     navigate(`/units/${unitId}`);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--token-color-surface-action)]"></div>
-        <span className="ml-2 text-[var(--token-color-foreground-faint)]">{t('common.loading')}</span>
-      </div>
-    );
-  }
 
   if (error) {
     return (

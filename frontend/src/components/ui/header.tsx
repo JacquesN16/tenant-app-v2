@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header 
-      className="border-b px-4 lg:px-6 py-4"
+      className="border-b px-3 lg:px-4 py-2"
       style={{ 
         backgroundColor: 'var(--token-color-surface-primary)',
         borderColor: 'var(--token-color-border-faint)'

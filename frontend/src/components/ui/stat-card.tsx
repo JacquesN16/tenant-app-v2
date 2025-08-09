@@ -20,7 +20,7 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => {
 
   return (
     <Card>
-      <CardContent className="p-6">
+      <CardContent className="p-3">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <p 

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useGlobalLoading } from '@/stores/loadingStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,6 +29,7 @@ const updateUserProfile = async (updatedUser: Partial<UserProfile>): Promise<Use
 const AccountSettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const { showLoading, hideLoading } = useGlobalLoading();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -99,13 +100,14 @@ const AccountSettingsPage: React.FC = () => {
     toast.success(t('accountSettings.themeUpdated'));
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <LoadingSpinner message={t('accountSettings.loadingProfile')} size="lg" />
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    if (isLoading) {
+      showLoading(t('accountSettings.loadingProfile'));
+    } else {
+      hideLoading();
+    }
+  }, [isLoading, showLoading, hideLoading, t]);
+
 
   if (isError) {
     return (

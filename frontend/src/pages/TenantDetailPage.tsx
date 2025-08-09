@@ -13,16 +13,26 @@ import EditTenantModal from '../components/EditTenantModal';
 import SetTenantEndDateModal from '../components/SetTenantEndDateModal';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
+import { useGlobalLoading } from '../stores/loadingStore';
 
 const TenantDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [softDeleteDialogOpen, setSoftDeleteDialogOpen] = useState(false);
+  const { showLoading, hideLoading } = useGlobalLoading();
   
   const { data: tenant, isLoading: isTenantLoading, error: tenantError } = useTenant(id) as { data: Tenant | undefined, isLoading: boolean, error: Error | null };
   const { data: unit, isLoading: isUnitLoading } = useUnit(tenant?.unitId);
   const { mutate: updateTenant, isPending: isUpdating } = useUpdateTenant();
+
+  React.useEffect(() => {
+    if (isTenantLoading || isUnitLoading) {
+      showLoading(t('common.loading'));
+    } else {
+      hideLoading();
+    }
+  }, [isTenantLoading, isUnitLoading, showLoading, hideLoading, t]);
 
   const actualStay = useMemo(()=>{
     if(!tenant){
@@ -67,14 +77,6 @@ const TenantDetailPage: React.FC = () => {
     });
   };
 
-  if (isTenantLoading || isUnitLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--token-color-surface-action)]"></div>
-        <span className="ml-2 text-[var(--token-color-foreground-faint)]">{t('common.loading')}</span>
-      </div>
-    );
-  }
 
   if (tenantError) {
     return (

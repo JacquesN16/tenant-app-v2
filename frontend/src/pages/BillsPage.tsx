@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getBillsByTenant, markBillAsPaid, downloadReceipt } from '../api/bill';
@@ -7,12 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { useTenant } from '../hooks/useData';
 import { Download } from 'lucide-react';
 import type { Bill } from '@tenant-lib/model';
+import { useGlobalLoading } from '../stores/loadingStore';
 
 const BillsPage = () => {
   const { t } = useTranslation();
   const { tenantId } = useParams<{ tenantId: string }>();
+  const { showLoading, hideLoading } = useGlobalLoading();
   const { data: bills, isLoading, refetch } = useQuery<Bill[]>({ queryKey: ['bills', tenantId], queryFn: () => getBillsByTenant(tenantId!) });
   const { data: tenant, isLoading: isTenantLoading } = useTenant(tenantId);
+
+  React.useEffect(() => {
+    if (isLoading || isTenantLoading) {
+      showLoading(t('bills.loading'));
+    } else {
+      hideLoading();
+    }
+  }, [isLoading, isTenantLoading, showLoading, hideLoading, t]);
 
   const handleMarkAsPaid = async (billId: string) => {
     await markBillAsPaid(billId);
@@ -35,7 +46,7 @@ const BillsPage = () => {
 
 
   if (isLoading || isTenantLoading) {
-    return <div className="text-muted-foreground">{t('bills.loading')}</div>;
+    return null;
   }
 
   if (!bills || bills.length === 0) {
